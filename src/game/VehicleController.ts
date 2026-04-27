@@ -39,9 +39,10 @@ export class VehicleController {
     // Lower box for low center of mass — prevents flips
     const chassisShape = new CANNON.Box(new CANNON.Vec3(1, 0.35, 2.2));
     this.chassisBody = new CANNON.Body({ mass: 850 });
-    this.chassisBody.addShape(chassisShape, new CANNON.Vec3(0, 0, 0));
-    // Spawn high enough that wheels (radius 0.45) clear the ground
-    this.chassisBody.position.set(0, 1.5, 0);
+    // Offset chassis shape upward so the physical box never scrapes the ground.
+    this.chassisBody.addShape(chassisShape, new CANNON.Vec3(0, 0.5, 0));
+    // Hard start height: drops cleanly onto raycast wheels/track.
+    this.chassisBody.position.set(0, 2.0, 0);
     this.chassisBody.angularDamping = 0.2;
     this.chassisBody.collisionFilterGroup = GROUP_CHASSIS;
     // Chassis collides with ground only — never with wheels
@@ -56,10 +57,10 @@ export class VehicleController {
     });
 
     const wheelOptions: CANNON.WheelInfoOptions = {
-      radius: 0.4,
+      radius: 0.3,
       directionLocal: new CANNON.Vec3(0, -1, 0),
       suspensionStiffness: 38,
-      suspensionRestLength: 0.35,
+      suspensionRestLength: 0.5,
       // High frictionSlip → strong grip, no clipping/sliding
       frictionSlip: 10.5,
       dampingRelaxation: 2.4,
@@ -75,8 +76,8 @@ export class VehicleController {
 
     const halfWidth = 0.95;
     const wheelZ = 1.55;
-    // Connect wheels at the chassis bottom so suspension extends correctly
-    const wheelY = -0.35;
+    // Wheel raycast anchors sit slightly above the ground contact line.
+    const wheelY = -0.2;
     const positions: CANNON.Vec3[] = [
       new CANNON.Vec3(halfWidth, wheelY, wheelZ), // FR
       new CANNON.Vec3(-halfWidth, wheelY, wheelZ), // FL
