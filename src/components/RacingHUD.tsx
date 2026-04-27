@@ -6,6 +6,8 @@ export function RacingHUD() {
   const nitroActive = useGameState((s) => s.nitroActive);
   const gear = useGameState((s) => s.gear);
   const rpm = useGameState((s) => s.rpm);
+  const grounded = useGameState((s) => s.grounded);
+  const drifting = useGameState((s) => s.drifting);
 
   return (
     <div className="pointer-events-none absolute inset-0 select-none font-mono">
@@ -23,7 +25,33 @@ export function RacingHUD() {
              color: "var(--neon-cyan)",
              backdropFilter: "blur(10px)",
            }}>
-        WASD drive · SHIFT nitro · SPACE drift · B brake
+        WASD drive · SHIFT nitro · SPACE drift · B brake · R reset
+      </div>
+
+      {/* Debug telemetry */}
+      <div
+        className="absolute left-6 bottom-6 rounded-md border px-3 py-2 text-[10px] uppercase tracking-widest leading-relaxed"
+        style={{
+          background: "var(--hud-bg)",
+          borderColor: "var(--hud-border)",
+          color: "var(--neon-cyan)",
+          backdropFilter: "blur(10px)",
+        }}
+      >
+        <div>SPD <span className="text-[color:var(--neon-yellow)] tabular-nums">{Math.round(speed)}</span> km/h</div>
+        <div>GEAR <span className="text-[color:var(--neon-yellow)]">{gear}</span></div>
+        <div>
+          GROUND{" "}
+          <span style={{ color: grounded ? "var(--neon-cyan)" : "var(--neon-pink)" }}>
+            {grounded ? "YES" : "NO"}
+          </span>
+        </div>
+        <div>
+          DRIFT{" "}
+          <span style={{ color: drifting ? "var(--neon-pink)" : "var(--neon-cyan)" }}>
+            {drifting ? "ON" : "OFF"}
+          </span>
+        </div>
       </div>
 
       {/* Speedometer */}
