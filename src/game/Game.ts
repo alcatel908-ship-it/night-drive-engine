@@ -14,14 +14,10 @@ export class Game {
   private camera: FollowCamera;
   private clock = new THREE.Clock();
   private rafId = 0;
-  private targetFov: number;
-  private currentFov: number;
   private hudTick = 0;
 
   constructor(canvas: HTMLCanvasElement) {
     this.sceneManager = new SceneManager(canvas);
-    this.targetFov = this.sceneManager.baseFov;
-    this.currentFov = this.sceneManager.baseFov;
 
     this.world = new CANNON.World({ gravity: new CANNON.Vec3(0, -9.82, 0) });
     this.world.broadphase = new CANNON.SAPBroadphase(this.world);
@@ -52,7 +48,7 @@ export class Game {
     this.camera = new FollowCamera(this.sceneManager.camera);
   }
 
-  private nitroBoost(active: boolean, dt: number) {
+  private nitroBoost(active: boolean, dt: number, driftRecharge: boolean) {
     const state = useGameState.getState();
     let nitro = state.nitro;
     let actuallyActive = false;
@@ -60,11 +56,12 @@ export class Game {
       nitro = Math.max(0, nitro - dt * 28);
       actuallyActive = true;
     } else {
-      nitro = Math.min(100, nitro + dt * 9);
+      // Faster recharge while drifting (>1s of continuous drift).
+      const rechargeRate = driftRecharge ? 22 : 9;
+      nitro = Math.min(100, nitro + dt * rechargeRate);
     }
     if (state.nitro !== nitro) state.setNitro(nitro);
     if (state.nitroActive !== actuallyActive) state.setNitroActive(actuallyActive);
-    this.targetFov = actuallyActive ? this.sceneManager.baseFov + 14 : this.sceneManager.baseFov;
     return actuallyActive;
   }
 
@@ -78,9 +75,12 @@ export class Game {
   private loop = () => {
     const dt = Math.min(0.05, this.clock.getDelta());
 
+    // Drift-based nitro recharge after >1s of continuous sliding
+    const driftRecharge = this.vehicle.driftDuration > 1.0;
+
     // Nitro gating (only when going forward & has fuel)
     const wantNitro = this.input.state.nitro && this.input.state.forward > 0;
-    const nitroOn = this.nitroBoost(wantNitro, dt);
+    const nitroOn = this.nitroBoost(wantNitro, dt, driftRecharge);
 
     this.vehicle.applyControls(
       { ...this.input.state, nitro: nitroOn },
@@ -89,11 +89,14 @@ export class Game {
 
     this.world.step(1 / 60, dt, 3);
     this.vehicle.syncVisuals();
-    this.camera.update(this.vehicle.chassisMesh, this.vehicle.speedKmh, dt);
+    this.camera.update(
+      this.vehicle.chassisMesh,
+      this.vehicle.speedKmh,
+      dt,
+      this.vehicle.steerNormalized,
+      nitroOn,
+    );
 
-    // Smooth FOV
-    this.currentFov += (this.targetFov - this.currentFov) * Math.min(1, dt * 4);
-    this.sceneManager.setFov(this.currentFov);
 
     // HUD updates throttled to ~10fps to avoid React churn
     this.hudTick += dt;
