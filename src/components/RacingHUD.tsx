@@ -60,14 +60,30 @@ export function RacingHUD() {
       <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex items-end gap-8">
         <div className="text-center">
           <div className="text-[10px] uppercase tracking-[0.4em] text-[color:var(--neon-cyan)]/80">Gear</div>
-          <div className="text-5xl font-black text-[color:var(--neon-yellow)]"
-               style={{ textShadow: "0 0 18px var(--neon-yellow)" }}>{gear}</div>
+          <div
+            className="text-5xl font-black tabular-nums transition-colors"
+            style={{
+              color: revLimit ? "var(--neon-pink)" : "var(--neon-yellow)",
+              textShadow: revLimit
+                ? "0 0 22px var(--neon-pink)"
+                : "0 0 18px var(--neon-yellow)",
+            }}
+          >
+            {gearLabel}
+          </div>
         </div>
 
         <div className="text-center">
           <div className="text-[10px] uppercase tracking-[0.4em] text-[color:var(--neon-cyan)]/80">km/h</div>
-          <div className="text-7xl font-black tabular-nums text-[color:var(--neon-cyan)]"
-               style={{ textShadow: "0 0 28px var(--neon-cyan)" }}>
+          <div
+            className="text-7xl font-black tabular-nums"
+            style={{
+              color: revLimit ? "var(--neon-pink)" : "var(--neon-cyan)",
+              textShadow: revLimit
+                ? "0 0 32px var(--neon-pink)"
+                : "0 0 28px var(--neon-cyan)",
+            }}
+          >
             {Math.round(speed).toString().padStart(3, "0")}
           </div>
           <div className="mt-1 h-1.5 w-56 overflow-hidden rounded-full bg-white/10">
