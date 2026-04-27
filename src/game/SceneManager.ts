@@ -29,7 +29,6 @@ export class SceneManager {
     this.renderer.toneMappingExposure = 1.15;
 
     this.setupLights();
-    this.setupNeonGround();
 
     this.resizeHandler = () => this.handleResize(canvas);
     window.addEventListener("resize", this.resizeHandler);
@@ -52,48 +51,6 @@ export class SceneManager {
     // Rim neon glow
     const pink = new THREE.HemisphereLight("#ff3df0", "#10ffe6", 0.25);
     this.scene.add(pink);
-  }
-
-  private setupNeonGround() {
-    // Dark base plane
-    const base = new THREE.Mesh(
-      new THREE.PlaneGeometry(2000, 2000),
-      new THREE.MeshStandardMaterial({
-        color: "#080418",
-        roughness: 0.9,
-        metalness: 0.1,
-      }),
-    );
-    base.rotation.x = -Math.PI / 2;
-    base.receiveShadow = true;
-    this.scene.add(base);
-
-    // Neon grid overlay
-    const grid = new THREE.GridHelper(2000, 200, "#10ffe6", "#ff3df0");
-    (grid.material as THREE.Material).transparent = true;
-    (grid.material as THREE.Material).opacity = 0.55;
-    grid.position.y = 0.01;
-    this.scene.add(grid);
-
-    // Distant neon pillars for vibe
-    for (let i = 0; i < 60; i++) {
-      const isPink = Math.random() > 0.5;
-      const color = isPink ? "#ff3df0" : "#10ffe6";
-      const h = 8 + Math.random() * 30;
-      const pillar = new THREE.Mesh(
-        new THREE.BoxGeometry(2, h, 2),
-        new THREE.MeshStandardMaterial({
-          color,
-          emissive: color,
-          emissiveIntensity: 1.4,
-          roughness: 0.4,
-        }),
-      );
-      const angle = Math.random() * Math.PI * 2;
-      const dist = 60 + Math.random() * 400;
-      pillar.position.set(Math.cos(angle) * dist, h / 2, Math.sin(angle) * dist);
-      this.scene.add(pillar);
-    }
   }
 
   private handleResize(canvas: HTMLCanvasElement) {

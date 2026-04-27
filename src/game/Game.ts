@@ -4,6 +4,7 @@ import { SceneManager } from "./SceneManager";
 import { VehicleController } from "./VehicleController";
 import { InputHandler } from "./InputHandler";
 import { FollowCamera } from "./FollowCamera";
+import { Track } from "./Track";
 import { useGameState } from "./GameState";
 
 export class Game {
@@ -12,9 +13,11 @@ export class Game {
   private vehicle: VehicleController;
   private input: InputHandler;
   private camera: FollowCamera;
+  private track: Track;
   private clock = new THREE.Clock();
   private rafId = 0;
   private hudTick = 0;
+  private prevReset = false;
 
   constructor(canvas: HTMLCanvasElement) {
     this.sceneManager = new SceneManager(canvas);
@@ -23,8 +26,6 @@ export class Game {
     this.world.broadphase = new CANNON.SAPBroadphase(this.world);
     this.world.defaultContactMaterial.friction = 0.4;
 
-    // Materials — wheels vs ground need a dedicated ContactMaterial
-    // so the RaycastVehicle gets predictable grip and no clipping/sliding.
     const groundMaterial = new CANNON.Material("ground");
     const wheelMaterial = new CANNON.Material("wheel");
     const wheelGround = new CANNON.ContactMaterial(wheelMaterial, groundMaterial, {
@@ -33,14 +34,16 @@ export class Game {
     });
     this.world.addContactMaterial(wheelGround);
 
-    // Infinite ground plane (uses ground material)
     const groundBody = new CANNON.Body({ mass: 0, material: groundMaterial });
     groundBody.addShape(new CANNON.Plane());
     groundBody.quaternion.setFromAxisAngle(new CANNON.Vec3(1, 0, 0), -Math.PI / 2);
-    // Ground in its own collision group; chassis collides with ground but NOT wheels
-    groundBody.collisionFilterGroup = 1; // GROUP_GROUND
-    groundBody.collisionFilterMask = -1; // collide with everything
+    groundBody.collisionFilterGroup = 1;
+    groundBody.collisionFilterMask = -1;
     this.world.addBody(groundBody);
+
+    // Track is now decoupled from SceneManager so it can be swapped for
+    // imported geometry, splines, or richer environments later.
+    this.track = new Track(this.sceneManager.scene);
 
     this.vehicle = new VehicleController(this.world, this.sceneManager.scene, wheelMaterial);
     this.input = new InputHandler();
@@ -56,7 +59,6 @@ export class Game {
       nitro = Math.max(0, nitro - dt * 28);
       actuallyActive = true;
     } else {
-      // Faster recharge while drifting (>1s of continuous drift).
       const rechargeRate = driftRecharge ? 22 : 9;
       nitro = Math.min(100, nitro + dt * rechargeRate);
     }
@@ -65,9 +67,7 @@ export class Game {
     return actuallyActive;
   }
 
-  /** Public boost API */
   boost() {
-    // Manual trigger — sets a brief nitro pulse
     this.input.setMobileInput({ nitro: true });
     setTimeout(() => this.input.setMobileInput({ nitro: false }), 1500);
   }
@@ -75,20 +75,21 @@ export class Game {
   private loop = () => {
     const dt = Math.min(0.05, this.clock.getDelta());
 
-    // Drift-based nitro recharge after >1s of continuous sliding
-    const driftRecharge = this.vehicle.driftDuration > 1.0;
+    // Edge-triggered respawn on 'R'
+    if (this.input.state.reset && !this.prevReset) {
+      this.vehicle.resetToTrack();
+    }
+    this.prevReset = this.input.state.reset;
 
-    // Nitro gating (only when going forward & has fuel)
+    const driftRecharge = this.vehicle.driftDuration > 1.0;
     const wantNitro = this.input.state.nitro && this.input.state.forward > 0;
     const nitroOn = this.nitroBoost(wantNitro, dt, driftRecharge);
 
-    this.vehicle.applyControls(
-      { ...this.input.state, nitro: nitroOn },
-      dt,
-    );
+    this.vehicle.applyControls({ ...this.input.state, nitro: nitroOn }, dt);
 
+    // Hard-frame downforce — pulled from vehicle config so it scales with profile.
     this.vehicle.chassisBody.applyForce(
-      new CANNON.Vec3(0, -2000, 0),
+      new CANNON.Vec3(0, -this.vehicle.config.baseDownforce, 0),
       this.vehicle.chassisBody.position,
     );
 
@@ -102,8 +103,6 @@ export class Game {
       nitroOn,
     );
 
-
-    // HUD updates throttled to ~10fps to avoid React churn
     this.hudTick += dt;
     if (this.hudTick > 0.1) {
       this.hudTick = 0;
@@ -113,6 +112,9 @@ export class Game {
       const gear = Math.min(6, Math.max(1, Math.floor(speed / 45) + 1));
       state.setGear(gear);
       state.setRpm(Math.min(9000, 1200 + (speed % 45) * 170));
+      const grounded = this.vehicle.isGrounded();
+      if (state.grounded !== grounded) state.setGrounded(grounded);
+      if (state.drifting !== this.vehicle.drifting) state.setDrifting(this.vehicle.drifting);
     }
 
     this.sceneManager.renderer.render(this.sceneManager.scene, this.sceneManager.camera);
