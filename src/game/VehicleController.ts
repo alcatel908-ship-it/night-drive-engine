@@ -453,6 +453,10 @@ export class VehicleController {
     this.driftTime = 0;
     this.exitBoostTime = 0;
     this.bodyRoll = 0;
+    this.gearIndex = 1; // Neutral
+    this.shiftCooldown = 0;
+    this.shiftJustHappened = false;
+    this.atRevLimit = false;
   }
 
   get drifting() {
