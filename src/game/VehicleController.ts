@@ -201,8 +201,18 @@ export class VehicleController {
       cfg.minSteerFactor,
       1 - Math.min(1 - cfg.minSteerFactor, speedKmh / cfg.steerSpeedReference),
     );
-    const targetSteer = (input.left - input.right) * cfg.maxSteering * steerSpeedFactor;
-    this.currentSteer += (targetSteer - this.currentSteer) * Math.min(1, dt * 8);
+    const steerInput = input.left - input.right;
+    const targetSteer = steerInput * cfg.maxSteering * steerSpeedFactor;
+    // Self-aligning torque: when no steer input, snap toward center faster.
+    // Bonus while exiting a drift so the car "catches" the slide cleanly.
+    const noSteerInput = Math.abs(steerInput) < 0.01;
+    let steerLerp = dt * 8;
+    if (noSteerInput) {
+      const exiting = this.wasDrifting && !this.isDrifting;
+      const returnSpeed = cfg.steerReturnSpeed * (exiting ? cfg.driftSelfAlignBoost : 1);
+      steerLerp = dt * returnSpeed;
+    }
+    this.currentSteer += (targetSteer - this.currentSteer) * Math.min(1, steerLerp);
 
     this.vehicle.setSteeringValue(this.currentSteer, 0);
     this.vehicle.setSteeringValue(this.currentSteer, 1);
