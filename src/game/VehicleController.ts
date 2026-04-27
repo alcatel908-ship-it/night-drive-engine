@@ -50,11 +50,15 @@ export class VehicleController {
     // Lower box for low center of mass — prevents flips
     const chassisShape = new CANNON.Box(new CANNON.Vec3(1, 0.35, 2.2));
     this.chassisBody = new CANNON.Body({ mass: 850 });
-    // Offset chassis shape upward so the physical box never scrapes the ground.
-    this.chassisBody.addShape(chassisShape, new CANNON.Vec3(0, 0.5, 0));
+    // Offset the collision box UPWARD relative to the body origin. This places
+    // the body's center of mass BELOW the box (at/below axle level) — the #1
+    // fix for flipping. The visual mesh is re-aligned in syncVisuals().
+    this.chassisBody.addShape(chassisShape, new CANNON.Vec3(0, 0.7, 0));
     // Hard start height: drops cleanly onto raycast wheels/track.
     this.chassisBody.position.set(0, 2.0, 0);
-    this.chassisBody.angularDamping = 0.2;
+    // High angular damping = "air friction" for rotations → no wild spins/flips.
+    this.chassisBody.angularDamping = 0.7;
+    this.chassisBody.linearDamping = 0.05;
     this.chassisBody.collisionFilterGroup = GROUP_CHASSIS;
     // Chassis collides with ground only — never with wheels
     this.chassisBody.collisionFilterMask = GROUP_GROUND;
@@ -70,14 +74,15 @@ export class VehicleController {
     const wheelOptions: CANNON.WheelInfoOptions = {
       radius: 0.3,
       directionLocal: new CANNON.Vec3(0, -1, 0),
+      // Stiffer suspension resists body lean during hard cornering.
       suspensionStiffness: 38,
       suspensionRestLength: 0.5,
       // High frictionSlip → strong grip, no clipping/sliding
       frictionSlip: 10.5,
-      dampingRelaxation: 2.4,
+      dampingRelaxation: 2.5,
       dampingCompression: 4.5,
       maxSuspensionForce: 100000,
-      rollInfluence: 0.01, // very low → resists flipping
+      rollInfluence: 0.005, // ~0 → centrifugal force barely tilts the car
       axleLocal: new CANNON.Vec3(-1, 0, 0),
       chassisConnectionPointLocal: new CANNON.Vec3(1, 0, 1),
       maxSuspensionTravel: 0.3,
@@ -286,8 +291,9 @@ export class VehicleController {
       : 0;
     this.bodyRoll += (targetRoll - this.bodyRoll) * Math.min(1, dt * 6);
 
-    // ---- Downforce: glue car to road. Scales with speed squared. ----
-    const downforce = Math.min(9000, speed * speed * 12);
+    // ---- Downforce: glue car to road. Baseline = mass*10, scales with speed. ----
+    const mass = this.chassisBody.mass;
+    const downforce = mass * 10 + Math.min(12000, speed * speed * 14);
     const localDown = new CANNON.Vec3(0, -1, 0);
     const worldDown = this.chassisBody.quaternion.vmult(localDown);
     worldDown.scale(downforce, worldDown);
@@ -305,7 +311,18 @@ export class VehicleController {
   }
 
   syncVisuals() {
-    this.chassisMesh.position.copy(this.chassisBody.position as unknown as THREE.Vector3);
+    // Visual mesh is offset DOWN by the same amount the collision shape was
+    // offset UP, so the rendered car sits where it always did even though the
+    // body's center of mass is now at/below axle level.
+    const shapeOffset = 0.7;
+    const bodyPos = this.chassisBody.position;
+    const localOffset = new CANNON.Vec3(0, -shapeOffset, 0);
+    const worldOffset = this.chassisBody.quaternion.vmult(localOffset);
+    this.chassisMesh.position.set(
+      bodyPos.x + worldOffset.x,
+      bodyPos.y + worldOffset.y,
+      bodyPos.z + worldOffset.z,
+    );
     this.chassisMesh.quaternion.copy(this.chassisBody.quaternion as unknown as THREE.Quaternion);
     // Apply body-roll tilt around local Z (visual only — does not affect physics).
     if (this.bodyRoll !== 0) {
