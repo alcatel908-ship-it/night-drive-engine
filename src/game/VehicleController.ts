@@ -21,6 +21,16 @@ export class VehicleController {
   private wasDrifting = false;
   private bodyRoll = 0;
 
+  // ---- Transmission ----
+  /** 0 = Reverse, 1 = Neutral, 2..7 = Gears 1..6 */
+  private gearIndex = 2;
+  /** Seconds remaining in clutch power-cut. */
+  private shiftCooldown = 0;
+  /** True for one frame right after a shift completes (for camera punch). */
+  shiftJustHappened = false;
+  /** True when speed is at top of the current gear (rev limiter). */
+  atRevLimit = false;
+
   constructor(
     world: CANNON.World,
     scene: THREE.Scene,
