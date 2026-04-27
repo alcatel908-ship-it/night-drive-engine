@@ -6,7 +6,10 @@ export class FollowCamera {
   private offset = new THREE.Vector3(0, 4.2, -9);
   private lookOffset = new THREE.Vector3(0, 1.2, 6);
   private shakeTime = 0;
-  private steerLook = 0; // smoothed lateral look bias
+  private steerLook = 0;
+  private punchTime = 0; // gear-shift FOV punch (seconds remaining)
+  private readonly punchDuration = 0.18;
+  private readonly punchAmount = 6; // FOV degrees
 
   // Dynamic FOV
   baseFov = 72;
@@ -15,6 +18,11 @@ export class FollowCamera {
   constructor(private camera: THREE.PerspectiveCamera) {
     this.baseFov = camera.fov;
     this.currentFov = camera.fov;
+  }
+
+  /** Trigger a brief FOV "punch" (zoom in then out). */
+  triggerShiftPunch() {
+    this.punchTime = this.punchDuration;
   }
 
   /**
