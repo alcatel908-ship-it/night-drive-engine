@@ -87,6 +87,11 @@ export class Game {
       dt,
     );
 
+    this.vehicle.chassisBody.applyForce(
+      new CANNON.Vec3(0, -2000, 0),
+      this.vehicle.chassisBody.position,
+    );
+
     this.world.step(1 / 60, dt, 3);
     this.vehicle.syncVisuals();
     this.camera.update(
