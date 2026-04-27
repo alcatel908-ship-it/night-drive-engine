@@ -41,7 +41,7 @@ export function RacingHUD() {
         }}
       >
         <div>SPD <span className="text-[color:var(--neon-yellow)] tabular-nums">{Math.round(speed)}</span> km/h</div>
-        <div>GEAR <span className="text-[color:var(--neon-yellow)]">{gear}</span></div>
+        <div>GEAR <span className="text-[color:var(--neon-yellow)]">{gearLabel}</span></div>
         <div>
           GROUND{" "}
           <span style={{ color: grounded ? "var(--neon-cyan)" : "var(--neon-pink)" }}>
