@@ -307,6 +307,11 @@ export class VehicleController {
   syncVisuals() {
     this.chassisMesh.position.copy(this.chassisBody.position as unknown as THREE.Vector3);
     this.chassisMesh.quaternion.copy(this.chassisBody.quaternion as unknown as THREE.Quaternion);
+    // Apply body-roll tilt around local Z (visual only — does not affect physics).
+    if (this.bodyRoll !== 0) {
+      const rollQ = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), this.bodyRoll);
+      this.chassisMesh.quaternion.multiply(rollQ);
+    }
 
     for (let i = 0; i < this.vehicle.wheelInfos.length; i++) {
       this.vehicle.updateWheelTransform(i);
