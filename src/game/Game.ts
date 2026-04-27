@@ -95,6 +95,12 @@ export class Game {
 
     this.world.step(1 / 60, dt, 3);
     this.vehicle.syncVisuals();
+
+    // Camera FOV punch synced to gearbox shift event
+    if (this.vehicle.shiftJustHappened) {
+      this.camera.triggerShiftPunch();
+    }
+
     this.camera.update(
       this.vehicle.chassisMesh,
       this.vehicle.speedKmh,
@@ -107,11 +113,16 @@ export class Game {
     if (this.hudTick > 0.1) {
       this.hudTick = 0;
       const state = useGameState.getState();
-      const speed = this.vehicle.speedKmh;
+      let speed = this.vehicle.speedKmh;
+      // Rev limiter jitter — speed needle bounces off the redline
+      if (this.vehicle.atRevLimit) {
+        speed += (Math.random() - 0.5) * 6;
+      }
       state.setSpeed(speed);
-      const gear = Math.min(6, Math.max(1, Math.floor(speed / 45) + 1));
-      state.setGear(gear);
-      state.setRpm(Math.min(9000, 1200 + (speed % 45) * 170));
+      state.setGear(this.vehicle.gearNumber);
+      state.setGearLabel(this.vehicle.gearLabel);
+      state.setRevLimit(this.vehicle.atRevLimit);
+      state.setRpm(Math.min(9000, 1200 + (this.vehicle.speedKmh % 45) * 170));
       const grounded = this.vehicle.isGrounded();
       if (state.grounded !== grounded) state.setGrounded(grounded);
       if (state.drifting !== this.vehicle.drifting) state.setDrifting(this.vehicle.drifting);
