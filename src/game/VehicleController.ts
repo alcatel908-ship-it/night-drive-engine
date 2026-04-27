@@ -452,21 +452,45 @@ export class VehicleController {
     }
   }
 
-  /** Respawn: lift to (0, 5, 0), zero velocity, upright. */
+  /** Emergency respawn: clear all forces, zero velocity, upright at (0,2,0). */
   resetToTrack() {
-    this.chassisBody.position.set(0, 5, 0);
+    this.chassisBody.position.set(0, 2, 0);
     this.chassisBody.velocity.set(0, 0, 0);
     this.chassisBody.angularVelocity.set(0, 0, 0);
+    this.chassisBody.force.set(0, 0, 0);
+    this.chassisBody.torque.set(0, 0, 0);
     this.chassisBody.angularFactor.set(0, 1, 0);
     this.chassisBody.quaternion.set(0, 0, 0, 1);
+    // Wake the body so it responds immediately on next step
+    this.chassisBody.wakeUp();
+    // Zero brakes and engine on every wheel
+    for (let i = 0; i < this.vehicle.wheelInfos.length; i++) {
+      this.vehicle.applyEngineForce(0, i);
+      this.vehicle.setBrake(0, i);
+      this.vehicle.setSteeringValue(0, i);
+    }
     this.currentSteer = 0;
     this.driftTime = 0;
     this.exitBoostTime = 0;
     this.bodyRoll = 0;
+    this.isDrifting = false;
+    this.wasDrifting = false;
     this.gearIndex = 1; // Neutral
     this.shiftCooldown = 0;
     this.shiftJustHappened = false;
     this.atRevLimit = false;
+  }
+
+  /** Engine RPM derived from current speed + active gear. Idles at config.idleRpm. */
+  get rpm(): number {
+    const cfg = this.config;
+    if (this.gearIndex < 2) return cfg.idleRpm;
+    const gear = this.gearIndex - 2;
+    const ratio = cfg.gearRatios[gear];
+    const prev = gear > 0 ? cfg.gearRatios[gear - 1].maxSpeed : 0;
+    const span = Math.max(1, ratio.maxSpeed - prev);
+    const t = Math.max(0, Math.min(1, (this.speedKmh - prev) / span));
+    return cfg.idleRpm + t * (cfg.redlineRpm - cfg.idleRpm);
   }
 
   get drifting() {
