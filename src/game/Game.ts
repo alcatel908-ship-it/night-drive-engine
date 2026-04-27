@@ -137,48 +137,6 @@ export class Game {
     this.sceneManager.renderer.render(this.sceneManager.scene, this.sceneManager.camera);
     this.rafId = requestAnimationFrame(this.loop);
   };
-      new CANNON.Vec3(0, -this.vehicle.config.baseDownforce, 0),
-      this.vehicle.chassisBody.position,
-    );
-
-    this.world.step(1 / 60, dt, 3);
-    this.vehicle.syncVisuals();
-
-    // Camera FOV punch synced to gearbox shift event
-    if (this.vehicle.shiftJustHappened) {
-      this.camera.triggerShiftPunch();
-    }
-
-    this.camera.update(
-      this.vehicle.chassisMesh,
-      this.vehicle.speedKmh,
-      dt,
-      this.vehicle.steerNormalized,
-      nitroOn,
-    );
-
-    this.hudTick += dt;
-    if (this.hudTick > 0.1) {
-      this.hudTick = 0;
-      const state = useGameState.getState();
-      let speed = this.vehicle.speedKmh;
-      // Rev limiter jitter — speed needle bounces off the redline
-      if (this.vehicle.atRevLimit) {
-        speed += (Math.random() - 0.5) * 6;
-      }
-      state.setSpeed(speed);
-      state.setGear(this.vehicle.gearNumber);
-      state.setGearLabel(this.vehicle.gearLabel);
-      state.setRevLimit(this.vehicle.atRevLimit);
-      state.setRpm(Math.min(9000, 1200 + (this.vehicle.speedKmh % 45) * 170));
-      const grounded = this.vehicle.isGrounded();
-      if (state.grounded !== grounded) state.setGrounded(grounded);
-      if (state.drifting !== this.vehicle.drifting) state.setDrifting(this.vehicle.drifting);
-    }
-
-    this.sceneManager.renderer.render(this.sceneManager.scene, this.sceneManager.camera);
-    this.rafId = requestAnimationFrame(this.loop);
-  };
 
   start() {
     this.vehicle.resetToTrack();
