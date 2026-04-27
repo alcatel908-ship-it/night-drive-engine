@@ -207,15 +207,28 @@ export class VehicleController {
     this.vehicle.setSteeringValue(this.currentSteer, 0);
     this.vehicle.setSteeringValue(this.currentSteer, 1);
 
-    // ---- Engine force (RWD) ----
+    // ---- Transmission tick (auto 6-speed + R/N) ----
+    this.tickTransmission(input, speedKmh, dt);
+    const gearMult = this.currentGearForceMultiplier();
+
+    // ---- Engine force (RWD) — gear-scaled, cut during clutch shift ----
     let engineForce = 0;
-    if (input.forward) engineForce = -cfg.engineForce;
-    if (input.backward) engineForce = cfg.engineForce * 0.55;
-    if (input.nitro && input.forward) engineForce *= cfg.nitroMultiplier;
+    const powerCut = this.shiftCooldown > 0;
+    if (!powerCut) {
+      if (input.forward && this.gearIndex >= 2) {
+        engineForce = -cfg.engineForce * gearMult;
+        // Rev limiter: kill drive when at top of current gear (also drives jitter)
+        if (this.atRevLimit) engineForce *= 0.05;
+      }
+      if (input.backward && this.gearIndex === 0) {
+        engineForce = cfg.engineForce * 0.55;
+      }
+      if (input.nitro && input.forward) engineForce *= cfg.nitroMultiplier;
+    }
 
     if (this.exitBoostTime > 0) {
       this.exitBoostTime = Math.max(0, this.exitBoostTime - dt);
-      if (input.forward) engineForce *= cfg.driftExitBoost;
+      if (input.forward && !powerCut) engineForce *= cfg.driftExitBoost;
     }
 
     // ---- Drift detection ----
