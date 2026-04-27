@@ -28,6 +28,12 @@ export class VehicleController {
 
   private currentSteer = 0;
   private isDrifting = false;
+  private driftTime = 0;
+  // Base grip values — referenced by drift logic & counter-steer assist
+  private readonly frontGripBase = 10.5;
+  private readonly rearGripBase = 10.5;
+  private readonly rearGripDrift = 3.5;
+  private readonly frontGripDriftAssist = 13.5;
 
   constructor(world: CANNON.World, scene: THREE.Scene, wheelMaterial?: CANNON.Material) {
     // ---- Collision groups: chassis must NOT collide with its own wheels ----
@@ -212,11 +218,18 @@ export class VehicleController {
     const brakeForce = input.brake ? this.tuning.maxBrakeForce : 0;
     for (let i = 0; i < 4; i++) this.vehicle.setBrake(brakeForce, i);
 
-    // Drift mode: handbrake OR sharp steering at speed → reduce rear friction
+    // Drift mode: handbrake OR sharp steering at speed → reduce rear friction.
+    // Counter-steer assist: bump FRONT grip while drifting so the slide stays controllable.
     const sharpSteer = Math.abs(this.currentSteer) > this.tuning.maxSteer * 0.6;
     const driftTrigger = input.handbrake || (sharpSteer && speedKmh > 55);
     this.isDrifting = driftTrigger;
-    const rearFriction = driftTrigger ? 3.5 : 10.5;
+    if (driftTrigger) this.driftTime += dt;
+    else this.driftTime = 0;
+
+    const rearFriction = driftTrigger ? this.rearGripDrift : this.rearGripBase;
+    const frontFriction = driftTrigger ? this.frontGripDriftAssist : this.frontGripBase;
+    this.vehicle.wheelInfos[0].frictionSlip = frontFriction;
+    this.vehicle.wheelInfos[1].frictionSlip = frontFriction;
     this.vehicle.wheelInfos[2].frictionSlip = rearFriction;
     this.vehicle.wheelInfos[3].frictionSlip = rearFriction;
 
@@ -224,6 +237,24 @@ export class VehicleController {
       this.vehicle.setBrake(18, 2);
       this.vehicle.setBrake(18, 3);
     }
+
+    // ---- Downforce: glue car to road. Scales with speed squared. ----
+    // Force in chassis-local -Y direction so it presses car down even on slopes.
+    const downforce = Math.min(9000, speed * speed * 12);
+    const localDown = new CANNON.Vec3(0, -1, 0);
+    const worldDown = this.chassisBody.quaternion.vmult(localDown);
+    worldDown.scale(downforce, worldDown);
+    this.chassisBody.applyForce(worldDown, this.chassisBody.position);
+  }
+
+  /** Seconds the car has been continuously drifting (for nitro recharge). */
+  get driftDuration() {
+    return this.driftTime;
+  }
+
+  /** Normalized steering input (-1..1) for camera look-at offset. */
+  get steerNormalized() {
+    return this.currentSteer / this.tuning.maxSteer;
   }
 
   syncVisuals() {
