@@ -293,13 +293,9 @@ export class VehicleController {
       : 0;
     this.bodyRoll += (targetRoll - this.bodyRoll) * Math.min(1, dt * 6);
 
-    // ---- Downforce: glue car to road. Baseline = mass*10, scales with speed. ----
-    const mass = this.chassisBody.mass;
-    const downforce = mass * 10 + Math.min(12000, speed * speed * 14);
-    const localDown = new CANNON.Vec3(0, -1, 0);
-    const worldDown = this.chassisBody.quaternion.vmult(localDown);
-    worldDown.scale(downforce, worldDown);
-    this.chassisBody.applyForce(worldDown, this.chassisBody.position);
+    // Speed-scaled downforce remains secondary to the hard frame downforce in Game.ts.
+    const downforce = Math.min(8000, speed * speed * 10);
+    this.chassisBody.applyForce(new CANNON.Vec3(0, -downforce, 0), this.chassisBody.position);
   }
 
   /** Seconds the car has been continuously drifting (for nitro recharge). */
@@ -345,6 +341,7 @@ export class VehicleController {
     this.chassisBody.position.set(0, 2.0, 0);
     this.chassisBody.velocity.set(0, 0, 0);
     this.chassisBody.angularVelocity.set(0, 0, 0);
+    this.chassisBody.angularFactor.set(0, 1, 0);
     this.chassisBody.quaternion.set(0, 0, 0, 1);
   }
 
