@@ -4,8 +4,10 @@ export function RacingHUD() {
   const speed = useGameState((s) => s.speedKmh);
   const nitro = useGameState((s) => s.nitro);
   const nitroActive = useGameState((s) => s.nitroActive);
+  const gearLabel = useGameState((s) => s.gearLabel);
   const gear = useGameState((s) => s.gear);
   const rpm = useGameState((s) => s.rpm);
+  const revLimit = useGameState((s) => s.revLimit);
   const grounded = useGameState((s) => s.grounded);
   const drifting = useGameState((s) => s.drifting);
 
