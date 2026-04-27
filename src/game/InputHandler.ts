@@ -6,6 +6,7 @@ export type InputState = {
   brake: boolean;
   nitro: boolean;
   handbrake: boolean;
+  reset: boolean;
 };
 
 export class InputHandler {
@@ -17,6 +18,7 @@ export class InputHandler {
     brake: false,
     nitro: false,
     handbrake: false,
+    reset: false,
   };
 
   private keys = new Set<string>();
@@ -59,5 +61,6 @@ export class InputHandler {
     this.state.nitro = k.has("ShiftLeft") || k.has("ShiftRight");
     // Drift = Space or H. Shift stays dedicated to nitro to avoid conflicts.
     this.state.handbrake = k.has("Space") || k.has("KeyH");
+    this.state.reset = k.has("KeyR");
   }
 }
