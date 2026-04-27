@@ -14,14 +14,10 @@ export class Game {
   private camera: FollowCamera;
   private clock = new THREE.Clock();
   private rafId = 0;
-  private targetFov: number;
-  private currentFov: number;
   private hudTick = 0;
 
   constructor(canvas: HTMLCanvasElement) {
     this.sceneManager = new SceneManager(canvas);
-    this.targetFov = this.sceneManager.baseFov;
-    this.currentFov = this.sceneManager.baseFov;
 
     this.world = new CANNON.World({ gravity: new CANNON.Vec3(0, -9.82, 0) });
     this.world.broadphase = new CANNON.SAPBroadphase(this.world);
@@ -101,9 +97,6 @@ export class Game {
       nitroOn,
     );
 
-    // Smooth FOV
-    this.currentFov += (this.targetFov - this.currentFov) * Math.min(1, dt * 4);
-    this.sceneManager.setFov(this.currentFov);
 
     // HUD updates throttled to ~10fps to avoid React churn
     this.hudTick += dt;
