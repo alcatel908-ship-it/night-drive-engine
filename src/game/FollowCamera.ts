@@ -42,8 +42,15 @@ export class FollowCamera {
     // ---- Dynamic FOV: zoom out with speed; extra punch on nitro ----
     const speedFov = THREE.MathUtils.clamp(speedKmh / 320, 0, 1) * 18;
     const nitroFov = nitroActive ? 12 : 0;
-    const targetFov = this.baseFov + speedFov + nitroFov;
-    this.currentFov += (targetFov - this.currentFov) * Math.min(1, dt * 4);
+    // Shift "punch": zoom in then snap back (sin half-wave from 0..pi)
+    let punchFov = 0;
+    if (this.punchTime > 0) {
+      this.punchTime = Math.max(0, this.punchTime - dt);
+      const progress = 1 - this.punchTime / this.punchDuration; // 0..1
+      punchFov = -Math.sin(progress * Math.PI) * this.punchAmount;
+    }
+    const targetFov = this.baseFov + speedFov + nitroFov + punchFov;
+    this.currentFov += (targetFov - this.currentFov) * Math.min(1, dt * 18);
     this.camera.fov = this.currentFov;
     this.camera.updateProjectionMatrix();
 
