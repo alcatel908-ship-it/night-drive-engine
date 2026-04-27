@@ -29,11 +29,16 @@ export class VehicleController {
   private currentSteer = 0;
   private isDrifting = false;
   private driftTime = 0;
+  private exitBoostTime = 0;
+  private wasDrifting = false;
+  private bodyRoll = 0;
   // Base grip values — referenced by drift logic & counter-steer assist
   private readonly frontGripBase = 10.5;
   private readonly rearGripBase = 10.5;
-  private readonly rearGripDrift = 3.5;
+  // Slip-angle drift: rear grip reduced by ~60%
+  private readonly rearGripDrift = 4.2;
   private readonly frontGripDriftAssist = 13.5;
+  private readonly frontGripStabilityAssist = 16.5;
 
   constructor(world: CANNON.World, scene: THREE.Scene, wheelMaterial?: CANNON.Material) {
     // ---- Collision groups: chassis must NOT collide with its own wheels ----
@@ -211,35 +216,77 @@ export class VehicleController {
     if (input.backward) engineForce = this.tuning.maxEngineForce * 0.55;
     if (input.nitro && input.forward) engineForce *= this.tuning.nitroMultiplier;
 
-    this.vehicle.applyEngineForce(engineForce, 2);
-    this.vehicle.applyEngineForce(engineForce, 3);
+    // ---- Drift exit boost: short 1.2x engine multiplier after releasing drift ----
+    if (this.exitBoostTime > 0) {
+      this.exitBoostTime = Math.max(0, this.exitBoostTime - dt);
+      if (input.forward) engineForce *= 1.2;
+    }
 
-    // Brakes
-    const brakeForce = input.brake ? this.tuning.maxBrakeForce : 0;
-    for (let i = 0; i < 4; i++) this.vehicle.setBrake(brakeForce, i);
-
-    // Drift mode: handbrake OR sharp steering at speed → reduce rear friction.
-    // Counter-steer assist: bump FRONT grip while drifting so the slide stays controllable.
+    // Drift trigger — slip-angle model. Driver-initiated via Space/H, OR
+    // implicit when steering hard at speed. Engine force is preserved so the
+    // car keeps momentum through the slide.
     const sharpSteer = Math.abs(this.currentSteer) > this.tuning.maxSteer * 0.6;
     const driftTrigger = input.handbrake || (sharpSteer && speedKmh > 55);
     this.isDrifting = driftTrigger;
     if (driftTrigger) this.driftTime += dt;
     else this.driftTime = 0;
 
+    // Detect drift release → arm exit boost (~0.6s window)
+    if (this.wasDrifting && !driftTrigger && speedKmh > 40) {
+      this.exitBoostTime = 0.6;
+    }
+    this.wasDrifting = driftTrigger;
+
+    // ---- Slip-angle stability assist ----
+    // Compute angle between car's forward vector and its velocity. When the
+    // slide gets wide, ramp front grip up so the player can "catch" it by
+    // counter-steering and exit cleanly.
+    const forwardLocal = new CANNON.Vec3(0, 0, -1);
+    const forwardWorld = this.chassisBody.quaternion.vmult(forwardLocal);
+    const vel = this.chassisBody.velocity;
+    const velLen = vel.length();
+    let slipAngle = 0;
+    if (velLen > 2) {
+      const dot = (forwardWorld.x * vel.x + forwardWorld.y * vel.y + forwardWorld.z * vel.z) / velLen;
+      slipAngle = Math.acos(Math.max(-1, Math.min(1, Math.abs(dot)))); // 0..PI/2
+    }
+    const wideSlip = slipAngle > 0.45; // ~26°+
+
     const rearFriction = driftTrigger ? this.rearGripDrift : this.rearGripBase;
-    const frontFriction = driftTrigger ? this.frontGripDriftAssist : this.frontGripBase;
+    const frontFriction = driftTrigger
+      ? wideSlip
+        ? this.frontGripStabilityAssist
+        : this.frontGripDriftAssist
+      : this.frontGripBase;
     this.vehicle.wheelInfos[0].frictionSlip = frontFriction;
     this.vehicle.wheelInfos[1].frictionSlip = frontFriction;
     this.vehicle.wheelInfos[2].frictionSlip = rearFriction;
     this.vehicle.wheelInfos[3].frictionSlip = rearFriction;
 
-    if (input.handbrake) {
-      this.vehicle.setBrake(18, 2);
-      this.vehicle.setBrake(18, 3);
+    this.vehicle.applyEngineForce(engineForce, 2);
+    this.vehicle.applyEngineForce(engineForce, 3);
+
+    // Brakes (dedicated brake key — no longer Space, which is now drift)
+    const brakeForce = input.brake ? this.tuning.maxBrakeForce : 0;
+    for (let i = 0; i < 4; i++) this.vehicle.setBrake(brakeForce, i);
+
+    // ---- Torque vectoring ----
+    // Subtle yaw impulse while drifting + steering helps the chassis rotate
+    // smoothly into the corner without feeling on rails.
+    if (driftTrigger && Math.abs(this.currentSteer) > 0.05 && speedKmh > 30) {
+      const yawDir = this.currentSteer > 0 ? 1 : -1;
+      const yawStrength = 1400 * Math.min(1, speedKmh / 140) * dt;
+      const yawImpulse = new CANNON.Vec3(0, yawDir * yawStrength, 0);
+      this.chassisBody.angularVelocity.y += yawImpulse.y / 850; // mass-normalized
     }
 
+    // ---- Body roll: tilt chassis mesh outward into the turn while drifting ----
+    const targetRoll = driftTrigger
+      ? -this.steerNormalized * 0.12 * Math.min(1, speedKmh / 120)
+      : 0;
+    this.bodyRoll += (targetRoll - this.bodyRoll) * Math.min(1, dt * 6);
+
     // ---- Downforce: glue car to road. Scales with speed squared. ----
-    // Force in chassis-local -Y direction so it presses car down even on slopes.
     const downforce = Math.min(9000, speed * speed * 12);
     const localDown = new CANNON.Vec3(0, -1, 0);
     const worldDown = this.chassisBody.quaternion.vmult(localDown);
