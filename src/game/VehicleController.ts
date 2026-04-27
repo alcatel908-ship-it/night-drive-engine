@@ -291,8 +291,9 @@ export class VehicleController {
       : 0;
     this.bodyRoll += (targetRoll - this.bodyRoll) * Math.min(1, dt * 6);
 
-    // ---- Downforce: glue car to road. Scales with speed squared. ----
-    const downforce = Math.min(9000, speed * speed * 12);
+    // ---- Downforce: glue car to road. Baseline = mass*10, scales with speed. ----
+    const mass = this.chassisBody.mass;
+    const downforce = mass * 10 + Math.min(12000, speed * speed * 14);
     const localDown = new CANNON.Vec3(0, -1, 0);
     const worldDown = this.chassisBody.quaternion.vmult(localDown);
     worldDown.scale(downforce, worldDown);
@@ -310,7 +311,18 @@ export class VehicleController {
   }
 
   syncVisuals() {
-    this.chassisMesh.position.copy(this.chassisBody.position as unknown as THREE.Vector3);
+    // Visual mesh is offset DOWN by the same amount the collision shape was
+    // offset UP, so the rendered car sits where it always did even though the
+    // body's center of mass is now at/below axle level.
+    const shapeOffset = 0.7;
+    const bodyPos = this.chassisBody.position;
+    const localOffset = new CANNON.Vec3(0, -shapeOffset, 0);
+    const worldOffset = this.chassisBody.quaternion.vmult(localOffset);
+    this.chassisMesh.position.set(
+      bodyPos.x + worldOffset.x,
+      bodyPos.y + worldOffset.y,
+      bodyPos.z + worldOffset.z,
+    );
     this.chassisMesh.quaternion.copy(this.chassisBody.quaternion as unknown as THREE.Quaternion);
     // Apply body-roll tilt around local Z (visual only — does not affect physics).
     if (this.bodyRoll !== 0) {
