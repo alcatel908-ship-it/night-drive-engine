@@ -32,9 +32,8 @@ export class Game {
     const groundMaterial = new CANNON.Material("ground");
     const wheelMaterial = new CANNON.Material("wheel");
     const wheelGround = new CANNON.ContactMaterial(wheelMaterial, groundMaterial, {
-      friction: 0.8,
-      restitution: 0,
-      contactEquationStiffness: 1000,
+      friction: 1.0,
+      restitution: 0.0,
     });
     this.world.addContactMaterial(wheelGround);
 
@@ -113,6 +112,7 @@ export class Game {
   };
 
   start() {
+    this.vehicle.resetToTrack();
     this.clock.start();
     this.rafId = requestAnimationFrame(this.loop);
   }
