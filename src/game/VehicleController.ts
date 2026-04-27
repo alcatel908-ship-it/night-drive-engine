@@ -21,6 +21,16 @@ export class VehicleController {
   private wasDrifting = false;
   private bodyRoll = 0;
 
+  // ---- Transmission ----
+  /** 0 = Reverse, 1 = Neutral, 2..7 = Gears 1..6 */
+  private gearIndex = 2;
+  /** Seconds remaining in clutch power-cut. */
+  private shiftCooldown = 0;
+  /** True for one frame right after a shift completes (for camera punch). */
+  shiftJustHappened = false;
+  /** True when speed is at top of the current gear (rev limiter). */
+  atRevLimit = false;
+
   constructor(
     world: CANNON.World,
     scene: THREE.Scene,
@@ -197,15 +207,28 @@ export class VehicleController {
     this.vehicle.setSteeringValue(this.currentSteer, 0);
     this.vehicle.setSteeringValue(this.currentSteer, 1);
 
-    // ---- Engine force (RWD) ----
+    // ---- Transmission tick (auto 6-speed + R/N) ----
+    this.tickTransmission(input, speedKmh, dt);
+    const gearMult = this.currentGearForceMultiplier();
+
+    // ---- Engine force (RWD) — gear-scaled, cut during clutch shift ----
     let engineForce = 0;
-    if (input.forward) engineForce = -cfg.engineForce;
-    if (input.backward) engineForce = cfg.engineForce * 0.55;
-    if (input.nitro && input.forward) engineForce *= cfg.nitroMultiplier;
+    const powerCut = this.shiftCooldown > 0;
+    if (!powerCut) {
+      if (input.forward && this.gearIndex >= 2) {
+        engineForce = -cfg.engineForce * gearMult;
+        // Rev limiter: kill drive when at top of current gear (also drives jitter)
+        if (this.atRevLimit) engineForce *= 0.05;
+      }
+      if (input.backward && this.gearIndex === 0) {
+        engineForce = cfg.engineForce * 0.55;
+      }
+      if (input.nitro && input.forward) engineForce *= cfg.nitroMultiplier;
+    }
 
     if (this.exitBoostTime > 0) {
       this.exitBoostTime = Math.max(0, this.exitBoostTime - dt);
-      if (input.forward) engineForce *= cfg.driftExitBoost;
+      if (input.forward && !powerCut) engineForce *= cfg.driftExitBoost;
     }
 
     // ---- Drift detection ----
@@ -302,6 +325,90 @@ export class VehicleController {
     return false;
   }
 
+  // ---------------- Transmission ----------------
+
+  /** Multiplier from current gear; 0 if R/N. */
+  private currentGearForceMultiplier(): number {
+    if (this.gearIndex < 2) return 0;
+    return this.config.gearRatios[this.gearIndex - 2].forceMultiplier;
+  }
+
+  /** Auto gearbox: pick gear from speed, manage shift cooldown + rev limiter. */
+  private tickTransmission(
+    input: { forward: number; backward: number },
+    speedKmh: number,
+    dt: number,
+  ) {
+    this.shiftJustHappened = false;
+    if (this.shiftCooldown > 0) {
+      this.shiftCooldown = Math.max(0, this.shiftCooldown - dt);
+      // When the cooldown ends, fire the shift kick
+      if (this.shiftCooldown === 0) {
+        this.shiftJustHappened = true;
+        // Forward impulse along chassis forward axis
+        const fwd = this.chassisBody.quaternion.vmult(new CANNON.Vec3(0, 0, -1));
+        const kick = this.config.shiftKickImpulse;
+        this.chassisBody.applyImpulse(
+          new CANNON.Vec3(fwd.x * kick, 0, fwd.z * kick),
+          this.chassisBody.position,
+        );
+      }
+    }
+
+    if (this.config.transmissionType !== "auto") return;
+
+    // R/N selection from input
+    const stopped = speedKmh < 1.5;
+    if (stopped && input.backward && !input.forward && this.gearIndex !== 0) {
+      this.requestShift(0); // Reverse
+      return;
+    }
+    if (stopped && !input.forward && !input.backward && this.gearIndex !== 1) {
+      // Roll into Neutral when idling
+      this.gearIndex = 1;
+    }
+    if (input.forward && this.gearIndex < 2) {
+      this.requestShift(2); // engage 1st
+      return;
+    }
+
+    // Auto up/down shift between gears 1..6 (indices 2..7)
+    if (this.gearIndex >= 2) {
+      const ratios = this.config.gearRatios;
+      const gear = this.gearIndex - 2; // 0..5
+      const top = ratios[gear].maxSpeed;
+      const prev = gear > 0 ? ratios[gear - 1].maxSpeed : 0;
+
+      this.atRevLimit = gear === ratios.length - 1 && speedKmh >= top - 1;
+
+      if (gear < ratios.length - 1 && speedKmh > top + 0.5) {
+        this.requestShift(this.gearIndex + 1);
+      } else if (gear > 0 && speedKmh < prev - 6) {
+        this.requestShift(this.gearIndex - 1);
+      }
+    } else {
+      this.atRevLimit = false;
+    }
+  }
+
+  private requestShift(target: number) {
+    if (this.shiftCooldown > 0) return;
+    this.gearIndex = target;
+    this.shiftCooldown = this.config.shiftDelay;
+  }
+
+  /** HUD label: 'R', 'N', '1'..'6' */
+  get gearLabel(): string {
+    if (this.gearIndex === 0) return "R";
+    if (this.gearIndex === 1) return "N";
+    return String(this.gearIndex - 1);
+  }
+
+  get gearNumber(): number {
+    return Math.max(0, this.gearIndex - 1);
+  }
+
+
   get driftDuration() {
     return this.driftTime;
   }
@@ -346,6 +453,10 @@ export class VehicleController {
     this.driftTime = 0;
     this.exitBoostTime = 0;
     this.bodyRoll = 0;
+    this.gearIndex = 1; // Neutral
+    this.shiftCooldown = 0;
+    this.shiftJustHappened = false;
+    this.atRevLimit = false;
   }
 
   get drifting() {
