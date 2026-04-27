@@ -23,7 +23,7 @@ export function RacingHUD() {
              color: "var(--neon-cyan)",
              backdropFilter: "blur(10px)",
            }}>
-        WASD drive · SHIFT nitro · SPACE brake · H drift
+        WASD drive · SHIFT nitro · SPACE drift · B brake
       </div>
 
       {/* Speedometer */}
