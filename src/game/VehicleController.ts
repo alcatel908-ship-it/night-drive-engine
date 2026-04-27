@@ -29,15 +29,23 @@ export class VehicleController {
   private currentSteer = 0;
   private isDrifting = false;
 
-  constructor(world: CANNON.World, scene: THREE.Scene) {
+  constructor(world: CANNON.World, scene: THREE.Scene, wheelMaterial?: CANNON.Material) {
+    // ---- Collision groups: chassis must NOT collide with its own wheels ----
+    const GROUP_GROUND = 1;
+    const GROUP_CHASSIS = 2;
+    const GROUP_WHEEL = 4;
+
     // ---- Chassis physics ----
     // Lower box for low center of mass — prevents flips
     const chassisShape = new CANNON.Box(new CANNON.Vec3(1, 0.35, 2.2));
     this.chassisBody = new CANNON.Body({ mass: 850 });
     this.chassisBody.addShape(chassisShape, new CANNON.Vec3(0, 0, 0));
-    // Lower the inertial center: visually shift body up, keep CoM low
-    this.chassisBody.position.set(0, 2, 0);
+    // Spawn high enough that wheels (radius 0.45) clear the ground
+    this.chassisBody.position.set(0, 1.5, 0);
     this.chassisBody.angularDamping = 0.2;
+    this.chassisBody.collisionFilterGroup = GROUP_CHASSIS;
+    // Chassis collides with ground only — never with wheels
+    this.chassisBody.collisionFilterMask = GROUP_GROUND;
     world.addBody(this.chassisBody);
 
     this.vehicle = new CANNON.RaycastVehicle({
@@ -48,25 +56,27 @@ export class VehicleController {
     });
 
     const wheelOptions: CANNON.WheelInfoOptions = {
-      radius: 0.45,
+      radius: 0.4,
       directionLocal: new CANNON.Vec3(0, -1, 0),
       suspensionStiffness: 38,
-      suspensionRestLength: 0.45,
-      frictionSlip: 2.6,
+      suspensionRestLength: 0.35,
+      // High frictionSlip → strong grip, no clipping/sliding
+      frictionSlip: 10.5,
       dampingRelaxation: 2.4,
       dampingCompression: 4.5,
       maxSuspensionForce: 100000,
       rollInfluence: 0.01, // very low → resists flipping
       axleLocal: new CANNON.Vec3(-1, 0, 0),
       chassisConnectionPointLocal: new CANNON.Vec3(1, 0, 1),
-      maxSuspensionTravel: 0.35,
+      maxSuspensionTravel: 0.3,
       customSlidingRotationalSpeed: -30,
       useCustomSlidingRotationalSpeed: true,
     };
 
     const halfWidth = 0.95;
     const wheelZ = 1.55;
-    const wheelY = -0.15;
+    // Connect wheels at the chassis bottom so suspension extends correctly
+    const wheelY = -0.35;
     const positions: CANNON.Vec3[] = [
       new CANNON.Vec3(halfWidth, wheelY, wheelZ), // FR
       new CANNON.Vec3(-halfWidth, wheelY, wheelZ), // FL
@@ -78,6 +88,15 @@ export class VehicleController {
       this.vehicle.addWheel(wheelOptions);
     }
     this.vehicle.addToWorld(world);
+
+    // Assign wheel material to all internal wheel bodies created by RaycastVehicle.
+    // This pairs with the wheel<->ground ContactMaterial defined in Game.ts.
+    if (wheelMaterial) {
+      for (const info of this.vehicle.wheelInfos) {
+        // @ts-expect-error material is supported on WheelInfo at runtime
+        info.material = wheelMaterial;
+      }
+    }
 
     // ---- Visuals ----
     this.chassisMesh = this.buildCarMesh();
@@ -196,7 +215,7 @@ export class VehicleController {
     const sharpSteer = Math.abs(this.currentSteer) > this.tuning.maxSteer * 0.6;
     const driftTrigger = input.handbrake || (sharpSteer && speedKmh > 55);
     this.isDrifting = driftTrigger;
-    const rearFriction = driftTrigger ? 0.9 : 2.6;
+    const rearFriction = driftTrigger ? 3.5 : 10.5;
     this.vehicle.wheelInfos[2].frictionSlip = rearFriction;
     this.vehicle.wheelInfos[3].frictionSlip = rearFriction;
 

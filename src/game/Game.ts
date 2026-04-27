@@ -27,12 +27,27 @@ export class Game {
     this.world.broadphase = new CANNON.SAPBroadphase(this.world);
     this.world.defaultContactMaterial.friction = 0.4;
 
-    // Infinite ground plane
-    const groundBody = new CANNON.Body({ mass: 0, shape: new CANNON.Plane() });
+    // Materials — wheels vs ground need a dedicated ContactMaterial
+    // so the RaycastVehicle gets predictable grip and no clipping/sliding.
+    const groundMaterial = new CANNON.Material("ground");
+    const wheelMaterial = new CANNON.Material("wheel");
+    const wheelGround = new CANNON.ContactMaterial(wheelMaterial, groundMaterial, {
+      friction: 0.8,
+      restitution: 0,
+      contactEquationStiffness: 1000,
+    });
+    this.world.addContactMaterial(wheelGround);
+
+    // Infinite ground plane (uses ground material)
+    const groundBody = new CANNON.Body({ mass: 0, material: groundMaterial });
+    groundBody.addShape(new CANNON.Plane());
     groundBody.quaternion.setFromAxisAngle(new CANNON.Vec3(1, 0, 0), -Math.PI / 2);
+    // Ground in its own collision group; chassis collides with ground but NOT wheels
+    groundBody.collisionFilterGroup = 1; // GROUP_GROUND
+    groundBody.collisionFilterMask = -1; // collide with everything
     this.world.addBody(groundBody);
 
-    this.vehicle = new VehicleController(this.world, this.sceneManager.scene);
+    this.vehicle = new VehicleController(this.world, this.sceneManager.scene, wheelMaterial);
     this.input = new InputHandler();
     this.input.attach();
     this.camera = new FollowCamera(this.sceneManager.camera);
