@@ -1,26 +1,25 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { RacingGame } from "@/components/RacingGame";
 
 export const Route = createFileRoute("/")({
+  head: () => ({
+    meta: [
+      { title: "Neon Street Racer — High-Performance Web Racing" },
+      {
+        name: "description",
+        content:
+          "A neon-soaked 3D street racer built with Three.js and cannon-es physics. WASD to drive, SHIFT for nitro.",
+      },
+      { property: "og:title", content: "Neon Street Racer" },
+      {
+        property: "og:description",
+        content: "Drift through a neon city in this Three.js + cannon-es racing engine.",
+      },
+    ],
+  }),
   component: Index,
 });
 
-// IMPORTANT: Replace this placeholder. For sites with multiple pages (About, Services, Contact, etc.),
-// create separate route files (about.tsx, services.tsx, contact.tsx) — don't put all pages in this file.
-function PlaceholderIndex() {
-  return (
-    <div
-      className="flex min-h-screen items-center justify-center"
-      style={{ backgroundColor: "#fcfbf8" }}
-    >
-      <img
-        data-lovable-blank-page-placeholder="REMOVE_THIS"
-        src="https://cdn.gpteng.co/blank-app-v1.svg"
-        alt="Your app will live here!"
-      />
-    </div>
-  );
-}
-
 function Index() {
-  return <PlaceholderIndex />;
+  return <RacingGame />;
 }

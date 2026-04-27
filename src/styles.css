@@ -63,8 +63,17 @@
 
 :root {
   --radius: 0.625rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.129 0.042 264.695);
+  /* Neon night-city palette */
+  --background: oklch(0.13 0.04 280);
+  --foreground: oklch(0.97 0.02 200);
+  --neon-pink: oklch(0.72 0.27 350);
+  --neon-cyan: oklch(0.85 0.18 200);
+  --neon-violet: oklch(0.62 0.28 295);
+  --neon-yellow: oklch(0.92 0.2 95);
+  --hud-bg: oklch(0.18 0.05 280 / 0.6);
+  --hud-border: oklch(0.85 0.18 200 / 0.5);
+  --shadow-neon-cyan: 0 0 20px oklch(0.85 0.18 200 / 0.7);
+  --shadow-neon-pink: 0 0 24px oklch(0.72 0.27 350 / 0.7);
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.129 0.042 264.695);
   --popover: oklch(1 0 0);
