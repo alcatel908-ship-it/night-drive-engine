@@ -89,6 +89,18 @@ export class VehicleController {
     }
     this.vehicle.addToWorld(world);
 
+    // Assign wheel material to all internal wheel bodies created by RaycastVehicle.
+    // This pairs with the wheel<->ground ContactMaterial defined in Game.ts.
+    if (wheelMaterial) {
+      for (const wb of this.vehicle.wheelBodies ?? []) {
+        wb.material = wheelMaterial;
+      }
+      for (const info of this.vehicle.wheelInfos) {
+        // @ts-expect-error material is supported on WheelInfo at runtime
+        info.material = wheelMaterial;
+      }
+    }
+
     // ---- Visuals ----
     this.chassisMesh = this.buildCarMesh();
     scene.add(this.chassisMesh);
