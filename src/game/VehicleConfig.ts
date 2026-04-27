@@ -1,91 +1,115 @@
-// Centralized vehicle tuning. Swap entire profiles to change car feel
-// without touching VehicleController logic.
+// =====================================================================
+//  GAME_CONFIG — Master tuning table.
+//  Every balancing knob (mass, gear ratios, friction, nitro, drift,
+//  traction, downforce, transmission) lives here. Touch this file to
+//  rebalance the game without editing physics/controller logic.
+// =====================================================================
 
 export type GearRatio = {
   /** Top speed (km/h) at which the box upshifts out of this gear. */
   maxSpeed: number;
-  /** Engine force multiplier — higher in low gears for torque. */
+  /** Engine torque multiplier — higher in low gears. */
   forceMultiplier: number;
 };
 
 export type VehicleConfig = {
-  /** Chassis mass (kg) */
+  // ---- Mass & engine ----
   mass: number;
-  /** Max engine drive force (N) */
   engineForce: number;
-  /** Max brake force per wheel */
   brakingForce: number;
-  /** Max steering angle (radians) at standstill */
+
+  // ---- Steering ----
   maxSteering: number;
-  /** Steering reduction at top speed: minSteerFactor in [0..1] */
   minSteerFactor: number;
-  /** Speed (km/h) at which steering reaches its minimum */
   steerSpeedReference: number;
-  /** Friction slip values for wheels */
+  /** How fast the wheels recenter when no steer input (per second). */
+  steerReturnSpeed: number;
+  /** Extra recentering bonus while exiting a drift (self-aligning torque). */
+  driftSelfAlignBoost: number;
+
+  // ---- Tire grip ----
   baseGrip: number;
   driftFriction: number;
   frontGripDriftAssist: number;
   frontGripStabilityAssist: number;
-  /** Engine multiplier when nitro is active */
+
+  // ---- Power-ups ----
   nitroMultiplier: number;
-  /** Multiplier applied briefly after exiting a drift */
   driftExitBoost: number;
-  /** Velocity alignment strength (per second). */
+
+  // ---- Traction control / handling feel ----
   velocityAlignment: number;
-  /** Aerodynamic drag coefficient (force = -coeff * v * |v|) */
   dragCoefficient: number;
-  /** Constant downforce applied per frame */
   baseDownforce: number;
-  /** Speed-squared downforce multiplier */
   speedDownforce: number;
-  /** Transmission */
+
+  // ---- Transmission ----
   transmissionType: "auto" | "manual";
-  /** Seconds the clutch cuts power during a shift. */
   shiftDelay: number;
-  /** Forward impulse (N·s) injected right after a shift completes. */
   shiftKickImpulse: number;
-  /** 6-speed gear ratios. Indexed 0..5 = gears 1..6. */
+  /** Idle RPM at standstill */
+  idleRpm: number;
+  /** RPM ceiling — used for HUD + future engine sound. */
+  redlineRpm: number;
   gearRatios: GearRatio[];
 };
 
-/** Default "balanced grip" profile used by the game. */
-export const VEHICLE_CONFIG: VehicleConfig = {
+/** Master config. Tweak here, never inside controllers. */
+export const GAME_CONFIG: VehicleConfig = {
+  // Mass & engine
   mass: 850,
-  engineForce: 1800,
+  engineForce: 2000,      // strong low-gear punch
   brakingForce: 60,
+
+  // Steering
   maxSteering: 0.55,
   minSteerFactor: 0.45,
   steerSpeedReference: 320,
-  baseGrip: 10.5,
+  steerReturnSpeed: 10,
+  driftSelfAlignBoost: 1.8,
+
+  // Tire grip
+  baseGrip: 11.0,         // bumped — kills "ice skating" feel
   driftFriction: 4.2,
   frontGripDriftAssist: 13.5,
   frontGripStabilityAssist: 16.5,
+
+  // Power-ups
   nitroMultiplier: 2.1,
   driftExitBoost: 1.2,
-  velocityAlignment: 3.2,
+
+  // Handling feel
+  velocityAlignment: 4.5, // stronger linear-grip pull when not drifting
   dragCoefficient: 0.55,
   baseDownforce: 2000,
   speedDownforce: 10,
+
+  // Transmission
   transmissionType: "auto",
   shiftDelay: 0.1,
   shiftKickImpulse: 1800,
-  // Torque is highest in 1st/2nd, tapers off in higher gears.
+  idleRpm: 900,
+  redlineRpm: 8500,
+  // Torque curve: hot off the line, cruising at the top end.
   gearRatios: [
-    { maxSpeed: 40, forceMultiplier: 1.6 },  // 1st
-    { maxSpeed: 80, forceMultiplier: 1.35 }, // 2nd
-    { maxSpeed: 130, forceMultiplier: 1.1 }, // 3rd
-    { maxSpeed: 180, forceMultiplier: 0.9 }, // 4th
-    { maxSpeed: 230, forceMultiplier: 0.75 }, // 5th
-    { maxSpeed: 300, forceMultiplier: 0.6 }, // 6th
+    { maxSpeed: 45, forceMultiplier: 1.7 },   // 1st — punchy
+    { maxSpeed: 85, forceMultiplier: 1.45 },  // 2nd — pull
+    { maxSpeed: 135, forceMultiplier: 1.15 }, // 3rd
+    { maxSpeed: 185, forceMultiplier: 0.95 }, // 4th
+    { maxSpeed: 235, forceMultiplier: 0.8 },  // 5th
+    { maxSpeed: 300, forceMultiplier: 0.65 }, // 6th — momentum
   ],
 };
 
+/** Back-compat alias — older imports still work. */
+export const VEHICLE_CONFIG = GAME_CONFIG;
+
 /** Alternate profile — looser rear, lighter, more drifty. */
 export const DRIFT_CAR_CONFIG: VehicleConfig = {
-  ...VEHICLE_CONFIG,
+  ...GAME_CONFIG,
   mass: 780,
-  engineForce: 1700,
+  engineForce: 1850,
   driftFriction: 3.0,
-  velocityAlignment: 1.6,
+  velocityAlignment: 2.2,
   nitroMultiplier: 2.3,
 };
