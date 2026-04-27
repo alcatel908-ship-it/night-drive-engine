@@ -215,7 +215,7 @@ export class VehicleController {
     const sharpSteer = Math.abs(this.currentSteer) > this.tuning.maxSteer * 0.6;
     const driftTrigger = input.handbrake || (sharpSteer && speedKmh > 55);
     this.isDrifting = driftTrigger;
-    const rearFriction = driftTrigger ? 0.9 : 2.6;
+    const rearFriction = driftTrigger ? 3.5 : 10.5;
     this.vehicle.wheelInfos[2].frictionSlip = rearFriction;
     this.vehicle.wheelInfos[3].frictionSlip = rearFriction;
 
