@@ -239,6 +239,13 @@ export class VehicleController {
     }
   }
 
+  resetToTrack() {
+    this.chassisBody.position.set(0, 2.0, 0);
+    this.chassisBody.velocity.set(0, 0, 0);
+    this.chassisBody.angularVelocity.set(0, 0, 0);
+    this.chassisBody.quaternion.set(0, 0, 0, 1);
+  }
+
   get drifting() {
     return this.isDrifting;
   }
