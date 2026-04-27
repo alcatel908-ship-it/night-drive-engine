@@ -54,8 +54,10 @@ export class InputHandler {
     this.state.backward = k.has("KeyS") || k.has("ArrowDown") ? 1 : 0;
     this.state.left = k.has("KeyA") || k.has("ArrowLeft") ? 1 : 0;
     this.state.right = k.has("KeyD") || k.has("ArrowRight") ? 1 : 0;
-    this.state.brake = k.has("Space");
+    // Brake moved to KeyB so Space can be the primary drift trigger.
+    this.state.brake = k.has("KeyB");
     this.state.nitro = k.has("ShiftLeft") || k.has("ShiftRight");
-    this.state.handbrake = k.has("KeyH");
+    // Drift = Space or H. Shift stays dedicated to nitro to avoid conflicts.
+    this.state.handbrake = k.has("Space") || k.has("KeyH");
   }
 }
