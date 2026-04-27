@@ -47,8 +47,8 @@ export class VehicleController {
     const GROUP_WHEEL = 4;
 
     // ---- Chassis physics ----
-    // Lower box for low center of mass — prevents flips
-    const chassisShape = new CANNON.Box(new CANNON.Vec3(1, 0.35, 2.2));
+    // Wider-than-visual collision box creates a broad, stable base.
+    const chassisShape = new CANNON.Box(new CANNON.Vec3(1.25, 0.35, 2.2));
     this.chassisBody = new CANNON.Body({ mass: 850 });
     // Offset the collision box UPWARD relative to the body origin. This places
     // the body's center of mass BELOW the box (at/below axle level) — the #1
@@ -58,6 +58,8 @@ export class VehicleController {
     this.chassisBody.position.set(0, 2.0, 0);
     // High angular damping = "air friction" for rotations → no wild spins/flips.
     this.chassisBody.angularDamping = 0.7;
+    // Absolute anti-flip: only yaw rotation is allowed; pitch/roll are locked.
+    this.chassisBody.angularFactor.set(0, 1, 0);
     this.chassisBody.linearDamping = 0.05;
     this.chassisBody.collisionFilterGroup = GROUP_CHASSIS;
     // Chassis collides with ground only — never with wheels
@@ -76,13 +78,13 @@ export class VehicleController {
       directionLocal: new CANNON.Vec3(0, -1, 0),
       // Stiffer suspension resists body lean during hard cornering.
       suspensionStiffness: 38,
-      suspensionRestLength: 0.5,
+      suspensionRestLength: 0.2,
       // High frictionSlip → strong grip, no clipping/sliding
       frictionSlip: 10.5,
       dampingRelaxation: 2.5,
       dampingCompression: 4.5,
       maxSuspensionForce: 100000,
-      rollInfluence: 0.005, // ~0 → centrifugal force barely tilts the car
+      rollInfluence: 0,
       axleLocal: new CANNON.Vec3(-1, 0, 0),
       chassisConnectionPointLocal: new CANNON.Vec3(1, 0, 1),
       maxSuspensionTravel: 0.3,
